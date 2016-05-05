@@ -188,10 +188,10 @@ def create_composite(image_dict, contours):
     composite = np.zeros((composite_dim[0], composite_dim[1], 3), dtype=np.float)
     for key, value in sorted(image_dict.iteritems()):
         if key == 'nucleus_image': composite[:,:,0] = value + contours
-        if key == 'cell_image': composite[:,:,1] = composite[:,:,1] + value + contours
+        if key == 'cell_image': composite[:,:,1] = value + contours
         if key == 'wpb_image': composite[:,:,2] = composite[:,:,2] + value/2+contours; composite[:,:,1] = composite[:,:,1] + value/2 +contours
-        if key == 'golgi_image': composite[:,:,0] = value
-        if key == 'exitSites_image': composite[:,:,0] = value
+        if key == 'golgi_image': composite[:,:,2] = value+contours
+        if key == 'exitSites_image': composite[:,:,0] = value/2+contours; composite[:,:,1] = value/2+contours;
     p2, p98 = np.percentile(composite, (2, 98))
     composite_rescale = exposure.rescale_intensity(composite, in_range=(p2, p98))
     return bytescale(composite_rescale)
