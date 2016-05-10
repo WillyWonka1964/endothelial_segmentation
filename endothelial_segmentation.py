@@ -97,16 +97,16 @@ def nucleusSegmentation(nucleus_image, nucleus_markers_sensitivity):
     return (blobs, blobs_labels, contours, boundaries, nucleus_features)
 
 def cellSegmentation(plasmaMembrane_image, nucleus_blobs):
-    plasmaMembrane_image = skimage.exposure.equalize_adapthist(plasmaMembrane_image, ntiles_x=20, clip_limit=0.01)
-    plasmaMembrane_denoise = skimage.restoration.denoise_tv_chambolle(plasmaMembrane_image, weight=0.1)
+    plasmaMembrane_clahe = skimage.exposure.equalize_adapthist(plasmaMembrane_image, ntiles_x=20, clip_limit=0.01)
+    plasmaMembrane_denoise = skimage.restoration.denoise_tv_chambolle(plasmaMembrane_clahe, weight=0.1)
     plasmaMembrane_seeds = np.fmin(~img_as_uint(nucleus_blobs), img_as_uint(plasmaMembrane_denoise))
     nucleus_markers = morphology.dilation((ndi.label(nucleus_blobs)[0]), disk(20))
     blobs_labels = watershed(plasmaMembrane_seeds, nucleus_markers)
     blobs = clear_border(~np.zeros(blobs_labels.shape, dtype=bool)^find_boundaries(blobs_labels, mode='inner'))
     blobs_labels = ndi.label(blobs)[0]
     contours = find_boundaries(blobs_labels, mode='outer').astype(np.uint8)
-    boundaries = mark_boundaries(plasmaMembrane_image, blobs_labels, color=(0.6,0,0), outline_color=None, mode='thick')
-    cell_features = measureMorphometry(blobs_labels, blobs, image_name)
+    boundaries = mark_boundaries(plasmaMembrane_clahe, blobs_labels, color=(0.6,0,0), outline_color=None, mode='thick')
+    cell_features = measureMorphometry(blobs_labels, plasmaMembrane_image, image_name)
     imsave('../03_python_results/cell_overlay/'+image_name.split('.',1)[0]+'.png', boundaries)
     imsave('../03_python_results/cell_labels/'+image_name.split('.',1)[0]+'.png', blobs_labels)
     return (blobs, blobs_labels, contours, boundaries, cell_features)
