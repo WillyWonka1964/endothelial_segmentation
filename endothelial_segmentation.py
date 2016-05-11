@@ -46,12 +46,15 @@ golgi_offset = -10 #adaptive threshold offset
 golgi_min_area = 5 #pixels
 golgi_max_area = 2000 #pixels
 
+spatial_analysis = True #generates synthetic x and y coordinates for segmented organelles
+number = 100 #the number of coordinate pairs to generate for spatial analysis
+
 exit_sites_threshold = 796 #16-bit exit_sites_min_area = 5 #pixels 
 regex=re.compile("") # list images to exclude as ".*(003004001_Field_001|006006001_Field_005).*"
 
 image_list = set([f for f in listdir(file_path) if isfile(join(file_path,f))])
 exclude_list = set([m.group(0) for l in image_list for m in [regex.search(l)] if m])
-image_list = sorted(image_list - exclude_list)#[51:56]
+image_list = sorted(image_list - exclude_list)#[:2]
 number_of_images = len(image_list)
 experiment_name  = os.path.basename(os.path.dirname(os.path.dirname(os.getcwd())))
 
@@ -196,27 +199,36 @@ def create_composite(image_dict, contours):
     composite_rescale = exposure.rescale_intensity(composite, in_range=(p2, p98))
     return bytescale(composite_rescale)
 
-def syntheticCoordinates(cell_labels, features):
+def syntheticCoordinates(cell_labels, features, number):
     properties = measure.regionprops(cell_labels)
-    coordinates =[prop.coords for prop in properties]
-    coords = np.empty([features.shape[0], 2])
-    coords.fill(np.nan)
-    for index, row in features.iterrows():
-        cell_number = int(features['cell'][index])
-        if (cell_number > 0):
-            random_coordinates = coordinates[cell_number-1][np.random.randint(0,coordinates[cell_number-1].shape[0],1)]
-            coords[index,0] = random_coordinates[0,1]
-            coords[index,1] = random_coordinates[0,0]
-    if (features.shape[0] > 0):
-        features['x_synth']=pd.DataFrame(coords[:,0])*pixel_dimension
-        features['y_synth']=pd.DataFrame(coords[:,1])*pixel_dimension
+    coordinates =[prop.coords for prop in properties] 
+    coords = np.empty([features.shape[0], 2]); coords.fill(np.nan)
+    synthetic_coordinates = np.zeros([features.shape[0], 2*number])
+    for i in range(number):
+        for index, row in features.iterrows():
+            cell_number = int(features['cell'][index])
+            if (cell_number > 0):
+                random_coordinates = coordinates[cell_number-1][np.random.randint(0,coordinates[cell_number-1].shape[0],1)]
+                coords[index,0] = random_coordinates[0,1]
+                coords[index,1] = random_coordinates[0,0]
+        synthetic_coordinates[:,i*2] = coords[:,0]*pixel_dimension
+        synthetic_coordinates[:,i*2+1] = coords[:,1]*pixel_dimension
+    return synthetic_coordinates
+
 
 cols = ['particle_id','row','col','fov','x_centroid', 'y_centroid','area','perimeter','feret','equivalent_diameter','convex_area','major_axis_length','minor_axis_length','orientation','solidity','max_intensity','min_intensity','mean_intensity']
 if single_cell_analysis == True: cols.insert(4, 'cell')
 
+synthetic_cols = []
+for i in xrange(number):
+    synthetic_cols.append("x_"+str(i))
+    synthetic_cols.append("y_"+str(i))
+
 for key, value in channels.iteritems():
     if type(value) == int:
         pd.DataFrame(columns = cols).to_csv('../03_python_results/'+experiment_name+'_'+key+'.csv', sep=',', header=True, index=False)
+    if type(value)==int and key !='nucleus' and key != 'cell' and spatial_analysis == True:
+        pd.DataFrame(columns = synthetic_cols).to_csv('../03_python_results/'+experiment_name+'_'+key+'_synthetic_coordinates.csv', sep=',', header=True, index=False)
 
 #pd.DataFrame(columns = cols+['x_synth','y_synth']).to_csv('../03_python_results/'+experiment_name+'_wpb.csv', sep=',', header=True, index=False)
 
@@ -258,6 +270,10 @@ for image in range(0, number_of_images):
     composite_image = create_composite(image_dict, contours_dict)
     imsave('../03_python_results/rgb_overlay/'+image_name.split('.',1)[0]+'.png', composite_image)
 
-    #syntheticCoordinates(cell_labels, wpb_features)
+    for key, value in channels.iteritems():
+        if type(value)==int and key !='nucleus' and key != 'cell' and spatial_analysis == True:
+            features = eval(key+'_features')
+            synthetic_coordinates = syntheticCoordinates(cell_labels, features, number)
+            pd.DataFrame(synthetic_coordinates).to_csv('../03_python_results/'+experiment_name+'_'+key+'_synthetic_coordinates.csv', sep=',', mode='a', header=False, index=False)
 
 print '\nAnalysis time: ', datetime.now() - start_time, ' seconds'
