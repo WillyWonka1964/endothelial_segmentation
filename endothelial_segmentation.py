@@ -49,7 +49,8 @@ golgi_max_area = 2000 #pixels
 spatial_analysis = True #generates synthetic x and y coordinates for segmented organelles
 number = 100 #the number of coordinate pairs to generate for spatial analysis
 
-exit_sites_threshold = 796 #16-bit exit_sites_min_area = 5 #pixels 
+exit_sites_threshold = 796 #16-bit 
+exit_sites_min_area = 5 #pixels 
 regex=re.compile("") # list images to exclude as ".*(003004001_Field_001|006006001_Field_005).*"
 
 image_list = set([f for f in listdir(file_path) if isfile(join(file_path,f))])
